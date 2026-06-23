@@ -463,6 +463,10 @@
       gap: 10px;
     }
 
+    .button-row.compact {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .drop-zone {
       min-height: 130px;
       display: grid;
@@ -543,6 +547,23 @@
       padding: 14px;
     }
 
+    .palette-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .selected-paint {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
     .palette-list {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -562,6 +583,17 @@
       border-radius: 8px;
       background: #fff;
       font-size: 13px;
+    }
+
+    button.color-item {
+      width: 100%;
+      min-height: 44px;
+      text-align: left;
+    }
+
+    .color-item.active {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(31, 143, 131, 0.12);
     }
 
     .swatch {
@@ -823,7 +855,13 @@
 
         <div class="bottom-grid">
           <div class="palette">
-            <h3>颜色清单</h3>
+            <div class="palette-head">
+              <h3>颜色清单</h3>
+              <div class="selected-paint">
+                <span class="swatch" id="selectedSwatch" style="--c:#f8f6ee"></span>
+                <span id="selectedPaint">点击颜色后可改格子</span>
+              </div>
+            </div>
             <div class="palette-list" id="paletteList"></div>
           </div>
 
@@ -834,6 +872,14 @@
               <div class="calc-box"><strong id="boardNeed">2</strong><span>29x29 板数量</span></div>
               <div class="calc-box"><strong id="finalSize">15.0</strong><span>成品宽度 cm</span></div>
               <div class="calc-box"><strong id="ironTime">25s</strong><span>建议单面熨烫</span></div>
+            </div>
+            <div class="button-row compact">
+              <button id="undoBtn" type="button">撤销</button>
+              <button id="csvBtn" type="button">导出 CSV</button>
+              <button id="saveBtn" type="button">保存</button>
+              <button id="loadBtn" type="button">载入</button>
+              <button id="copyLinkBtn" type="button">复制链接</button>
+              <button id="clearProjectBtn" type="button">清项目</button>
             </div>
             <p class="hint" id="calcHint">钥匙扣建议保留明显外轮廓，并在顶部预留开圈位置。</p>
           </div>
@@ -901,7 +947,15 @@
     const downloadBtn = document.querySelector("#downloadBtn");
     const sampleBtn = document.querySelector("#sampleBtn");
     const fitBtn = document.querySelector("#fitBtn");
+    const undoBtn = document.querySelector("#undoBtn");
+    const csvBtn = document.querySelector("#csvBtn");
+    const saveBtn = document.querySelector("#saveBtn");
+    const loadBtn = document.querySelector("#loadBtn");
+    const copyLinkBtn = document.querySelector("#copyLinkBtn");
+    const clearProjectBtn = document.querySelector("#clearProjectBtn");
     const paletteList = document.querySelector("#paletteList");
+    const selectedSwatch = document.querySelector("#selectedSwatch");
+    const selectedPaint = document.querySelector("#selectedPaint");
 
     const ui = {
       gridWidthValue: document.querySelector("#gridWidthValue"),
@@ -920,6 +974,10 @@
     let beadShape = "round";
     let showNumbers = true;
     let currentPattern = [];
+    let selectedColor = null;
+    let undoStack = [];
+    let renderedCellSize = 0;
+    const storageKey = "pin-beads-workshop-project";
 
     function hexToRgb(hex) {
       const value = hex.replace("#", "");
@@ -1091,6 +1149,56 @@
       }
     }
 
+    function calculateCounts(pattern = currentPattern) {
+      const counts = new Map();
+      pattern.forEach((row) => {
+        row.forEach((color) => counts.set(color.index, (counts.get(color.index) || 0) + 1));
+      });
+      return counts;
+    }
+
+    function redrawPattern() {
+      if (!currentPattern.length) return;
+      const height = currentPattern.length;
+      const width = currentPattern[0].length;
+      const cell = Math.max(9, Math.floor(Math.min(980 / width, 980 / height)));
+      renderedCellSize = cell;
+      canvas.width = width * cell;
+      canvas.height = height * cell;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      currentPattern.forEach((row, y) => {
+        row.forEach((color, x) => {
+          drawCell(x * cell, y * cell, cell, color, color.index + 1);
+        });
+      });
+
+      const counts = calculateCounts();
+      updatePalette(counts);
+      updateCalc(width, height);
+      ui.previewMeta.textContent = `${width} x ${height} / ${width * height} 颗`;
+      ui.heroBeads.textContent = width * height;
+      undoBtn.disabled = undoStack.length === 0;
+    }
+
+    function snapshotPattern() {
+      return currentPattern.map((row) => row.map((color) => color.index));
+    }
+
+    function restorePattern(indices) {
+      currentPattern = indices.map((row) => row.map((index) => rgbPalette[index]));
+      redrawPattern();
+    }
+
+    function rememberUndo() {
+      if (!currentPattern.length) return;
+      undoStack.push(snapshotPattern());
+      if (undoStack.length > 30) undoStack.shift();
+      undoBtn.disabled = false;
+    }
+
     function renderPattern() {
       if (!sourceImage) return;
       const { width, height } = getGridSize();
@@ -1116,26 +1224,11 @@
         currentPattern.push(row);
       }
 
-      const cell = Math.max(9, Math.floor(Math.min(980 / width, 980 / height)));
-      canvas.width = width * cell;
-      canvas.height = height * cell;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      currentPattern.forEach((row, y) => {
-        row.forEach((color, x) => {
-          drawCell(x * cell, y * cell, cell, color, color.index + 1);
-        });
-      });
-
-      updatePalette(counts);
-      updateCalc(width, height, counts);
+      undoStack = [];
+      redrawPattern();
       ui.gridWidthValue.textContent = width;
       ui.colorCountValue.textContent = colorCount.value;
-      ui.previewMeta.textContent = `${width} x ${height} / ${width * height} 颗`;
       ui.heroColors.textContent = colorCount.value;
-      ui.heroBeads.textContent = width * height;
     }
 
     function updatePalette(counts) {
@@ -1144,12 +1237,22 @@
       paletteList.innerHTML = "";
       sorted.forEach(([index, count]) => {
         const color = rgbPalette[index];
-        const item = document.createElement("div");
+        const item = document.createElement("button");
+        item.type = "button";
         item.className = "color-item";
+        if (selectedColor && selectedColor.index === index) item.classList.add("active");
         item.innerHTML = `<span class="swatch" style="--c:${color.hex}"></span><span>${index + 1}. ${color.name}</span><strong>${count}</strong>`;
         item.title = `${Math.round((count / total) * 100)}%`;
+        item.addEventListener("click", () => selectPaintColor(color));
         paletteList.appendChild(item);
       });
+    }
+
+    function selectPaintColor(color) {
+      selectedColor = color;
+      selectedSwatch.style.setProperty("--c", color.hex);
+      selectedPaint.textContent = `${color.index + 1}. ${color.name}`;
+      updatePalette(calculateCounts());
     }
 
     function updateCalc(width, height) {
@@ -1189,6 +1292,92 @@
       link.click();
     }
 
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function exportCsv() {
+      if (!currentPattern.length) return;
+      const counts = calculateCounts();
+      const rows = [
+        ["type", "x", "y", "colorNumber", "colorName", "hex", "count"].join(",")
+      ];
+      [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([index, count]) => {
+        const color = rgbPalette[index];
+        rows.push(["summary", "", "", index + 1, color.name, color.hex, count].join(","));
+      });
+      currentPattern.forEach((row, y) => {
+        row.forEach((color, x) => {
+          rows.push(["cell", x + 1, y + 1, color.index + 1, color.name, color.hex, ""].join(","));
+        });
+      });
+      downloadText("拼豆颜色清单.csv", rows.join("\n"));
+    }
+
+    function saveProject() {
+      if (!currentPattern.length) return;
+      const project = {
+        savedAt: new Date().toISOString(),
+        gridWidth: Number(gridWidth.value),
+        colorCount: Number(colorCount.value),
+        projectType: projectType.value,
+        beadShape,
+        showNumbers,
+        pattern: snapshotPattern()
+      };
+      localStorage.setItem(storageKey, JSON.stringify(project));
+      saveBtn.textContent = "已保存";
+      window.setTimeout(() => { saveBtn.textContent = "保存"; }, 1400);
+    }
+
+    function loadProject() {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const project = JSON.parse(raw);
+      gridWidth.value = project.gridWidth || gridWidth.value;
+      colorCount.value = project.colorCount || colorCount.value;
+      projectType.value = project.projectType || projectType.value;
+      beadShape = project.beadShape || "round";
+      showNumbers = project.showNumbers !== false;
+      shapeBtn.textContent = beadShape === "round" ? "圆豆" : "方格";
+      numberBtn.textContent = showNumbers ? "显示编号" : "隐藏编号";
+      undoStack = [];
+      restorePattern(project.pattern);
+      ui.gridWidthValue.textContent = gridWidth.value;
+      ui.colorCountValue.textContent = colorCount.value;
+    }
+
+    function clearProject() {
+      localStorage.removeItem(storageKey);
+      clearProjectBtn.textContent = "已清除";
+      window.setTimeout(() => { clearProjectBtn.textContent = "清项目"; }, 1400);
+    }
+
+    async function copyShareLink() {
+      await navigator.clipboard.writeText("https://langshaojie45.github.io/pin-beads-workshop/");
+      copyLinkBtn.textContent = "已复制";
+      window.setTimeout(() => { copyLinkBtn.textContent = "复制链接"; }, 1400);
+    }
+
+    function paintCanvas(event) {
+      if (!selectedColor || !currentPattern.length || !renderedCellSize) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.floor(((event.clientX - rect.left) * scaleX) / renderedCellSize);
+      const y = Math.floor(((event.clientY - rect.top) * scaleY) / renderedCellSize);
+      if (!currentPattern[y] || !currentPattern[y][x]) return;
+      if (currentPattern[y][x].index === selectedColor.index) return;
+      rememberUndo();
+      currentPattern[y][x] = selectedColor;
+      redrawPattern();
+    }
+
     imageInput.addEventListener("change", (event) => loadFile(event.target.files[0]));
     dropZone.addEventListener("dragover", (event) => {
       event.preventDefault();
@@ -1220,11 +1409,24 @@
       renderPattern();
     });
     downloadBtn.addEventListener("click", downloadPattern);
+    csvBtn.addEventListener("click", exportCsv);
+    saveBtn.addEventListener("click", saveProject);
+    loadBtn.addEventListener("click", loadProject);
+    clearProjectBtn.addEventListener("click", clearProject);
+    copyLinkBtn.addEventListener("click", copyShareLink);
+    undoBtn.addEventListener("click", () => {
+      const previous = undoStack.pop();
+      if (previous) restorePattern(previous);
+      undoBtn.disabled = undoStack.length === 0;
+    });
+    canvas.addEventListener("click", paintCanvas);
     sampleBtn.addEventListener("click", createSampleImage);
     fitBtn.addEventListener("click", fitProject);
 
     fillPlayIcons();
     makeDemoBoard();
+    selectPaintColor(rgbPalette[0]);
+    undoBtn.disabled = true;
     createSampleImage();
   </script>
 </body>
