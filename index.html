@@ -537,6 +537,7 @@
       display: grid;
       place-items: center;
       padding: 18px;
+      overflow: auto;
       background:
         linear-gradient(45deg, #edf3f1 25%, transparent 25%),
         linear-gradient(-45deg, #edf3f1 25%, transparent 25%),
@@ -548,11 +549,11 @@
     }
 
     canvas {
-      max-width: 100%;
+      max-width: none;
       height: auto;
       border: 1px solid #b8c7c2;
       background: #fff;
-      image-rendering: pixelated;
+      image-rendering: auto;
     }
 
     .bottom-grid {
@@ -1270,6 +1271,7 @@
     let undoStack = [];
     let renderedCellSize = 0;
     let renderOrigin = { x: 0, y: 0 };
+    let renderedCanvasSize = { width: 0, height: 0 };
     const storageKey = "pin-beads-workshop-project";
     const gameBestKey = "pin-beads-workshop-best";
     let gameMode = "memory";
@@ -1494,8 +1496,8 @@
       const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
       const gap = 8;
       const cardHeight = 32;
-      const columns = Math.max(1, Math.floor((canvas.width - 32) / 150));
-      const cardWidth = Math.floor((canvas.width - 32 - gap * (columns - 1)) / columns);
+      const columns = Math.max(1, Math.floor((renderedCanvasSize.width - 32) / 150));
+      const cardWidth = Math.floor((renderedCanvasSize.width - 32 - gap * (columns - 1)) / columns);
       ctx.font = "bold 13px Arial";
       ctx.textBaseline = "middle";
       sorted.forEach(([index, count], i) => {
@@ -1567,11 +1569,20 @@
       const legendHeight = Math.max(48, legendRows * 40 + 12);
       renderedCellSize = cell;
       renderOrigin = { x: left, y: top };
-      canvas.width = left + width * cell + right;
-      canvas.height = top + height * cell + bottom + legendHeight;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      renderedCanvasSize = {
+        width: left + width * cell + right,
+        height: top + height * cell + bottom + legendHeight
+      };
+      const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 1));
+      canvas.width = Math.round(renderedCanvasSize.width * scale);
+      canvas.height = Math.round(renderedCanvasSize.height * scale);
+      canvas.style.width = `${renderedCanvasSize.width}px`;
+      canvas.style.height = `${renderedCanvasSize.height}px`;
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, renderedCanvasSize.width, renderedCanvasSize.height);
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, renderedCanvasSize.width, renderedCanvasSize.height);
       drawChartGrid(width, height, cell, left, top);
 
       currentPattern.forEach((row, y) => {
@@ -1815,8 +1826,8 @@
     function paintCanvas(event) {
       if (!selectedColor || !currentPattern.length || !renderedCellSize) return;
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+      const scaleX = renderedCanvasSize.width / rect.width;
+      const scaleY = renderedCanvasSize.height / rect.height;
       const canvasX = (event.clientX - rect.left) * scaleX - renderOrigin.x;
       const canvasY = (event.clientY - rect.top) * scaleY - renderOrigin.y;
       const x = Math.floor(canvasX / renderedCellSize);
