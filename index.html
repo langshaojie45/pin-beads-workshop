@@ -40,7 +40,8 @@
 
     button,
     input,
-    select {
+    select,
+    textarea {
       font: inherit;
     }
 
@@ -65,7 +66,8 @@
     }
 
     input,
-    select {
+    select,
+    textarea {
       width: 100%;
       min-height: 40px;
       border: 1px solid var(--line);
@@ -73,6 +75,12 @@
       padding: 8px 10px;
       background: var(--panel);
       color: var(--ink);
+    }
+
+    textarea {
+      min-height: 78px;
+      resize: vertical;
+      line-height: 1.55;
     }
 
     input[type="range"] {
@@ -440,6 +448,12 @@
       gap: 7px;
     }
 
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
     label {
       color: var(--muted);
       font-size: 13px;
@@ -465,6 +479,11 @@
 
     .button-row.compact {
       grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .button-row.compact button {
+      min-width: 0;
+      padding-inline: 6px;
     }
 
     .drop-zone {
@@ -703,6 +722,57 @@
         min-height: 360px;
         padding: 10px;
       }
+
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .topbar,
+      .hero,
+      #plays,
+      #tips,
+      .controls,
+      .preview-head button,
+      .button-row {
+        display: none !important;
+      }
+
+      .shell {
+        width: 100%;
+        padding: 0;
+      }
+
+      section {
+        margin-top: 0;
+      }
+
+      .workspace,
+      .bottom-grid {
+        display: block;
+      }
+
+      .preview,
+      .palette,
+      .calculator {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      .canvas-wrap {
+        min-height: 0;
+        padding: 8px;
+        background: #fff;
+      }
+
+      canvas {
+        max-height: 68vh;
+      }
     }
   </style>
 </head>
@@ -831,9 +901,30 @@
               </select>
             </div>
 
+            <div class="field-grid">
+              <div class="field">
+                <label for="projectName">作品名</label>
+                <input id="projectName" type="text" maxlength="28" value="我的拼豆作品">
+              </div>
+              <div class="field">
+                <label for="beadSize">豆子间距</label>
+                <select id="beadSize">
+                  <option value="0.5">5mm 标准豆</option>
+                  <option value="0.26">2.6mm 小豆</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="projectNotes">制作备注</label>
+              <textarea id="projectNotes" placeholder="例如：眼睛手动加深，挂件顶部留 2 格。"></textarea>
+            </div>
+
             <div class="toggle-row">
               <button id="shapeBtn" type="button">圆豆</button>
               <button id="numberBtn" type="button">显示编号</button>
+              <button id="coordBtn" type="button">隐藏坐标</button>
+              <button id="printBtn" type="button">打印图纸</button>
             </div>
 
             <div class="button-row">
@@ -876,11 +967,14 @@
             <div class="button-row compact">
               <button id="undoBtn" type="button">撤销</button>
               <button id="csvBtn" type="button">导出 CSV</button>
+              <button id="exportJsonBtn" type="button">导出项目</button>
+              <button id="importJsonBtn" type="button">导入项目</button>
               <button id="saveBtn" type="button">保存</button>
               <button id="loadBtn" type="button">载入</button>
               <button id="copyLinkBtn" type="button">复制链接</button>
               <button id="clearProjectBtn" type="button">清项目</button>
             </div>
+            <input class="hidden-input" id="projectInput" type="file" accept="application/json,.json">
             <p class="hint" id="calcHint">钥匙扣建议保留明显外轮廓，并在顶部预留开圈位置。</p>
           </div>
         </div>
@@ -942,17 +1036,25 @@
     const gridWidth = document.querySelector("#gridWidth");
     const colorCount = document.querySelector("#colorCount");
     const projectType = document.querySelector("#projectType");
+    const projectName = document.querySelector("#projectName");
+    const projectNotes = document.querySelector("#projectNotes");
+    const beadSize = document.querySelector("#beadSize");
     const shapeBtn = document.querySelector("#shapeBtn");
     const numberBtn = document.querySelector("#numberBtn");
+    const coordBtn = document.querySelector("#coordBtn");
+    const printBtn = document.querySelector("#printBtn");
     const downloadBtn = document.querySelector("#downloadBtn");
     const sampleBtn = document.querySelector("#sampleBtn");
     const fitBtn = document.querySelector("#fitBtn");
     const undoBtn = document.querySelector("#undoBtn");
     const csvBtn = document.querySelector("#csvBtn");
+    const exportJsonBtn = document.querySelector("#exportJsonBtn");
+    const importJsonBtn = document.querySelector("#importJsonBtn");
     const saveBtn = document.querySelector("#saveBtn");
     const loadBtn = document.querySelector("#loadBtn");
     const copyLinkBtn = document.querySelector("#copyLinkBtn");
     const clearProjectBtn = document.querySelector("#clearProjectBtn");
+    const projectInput = document.querySelector("#projectInput");
     const paletteList = document.querySelector("#paletteList");
     const selectedSwatch = document.querySelector("#selectedSwatch");
     const selectedPaint = document.querySelector("#selectedPaint");
@@ -973,6 +1075,7 @@
     let sourceImage = null;
     let beadShape = "round";
     let showNumbers = true;
+    let showCoordinates = true;
     let currentPattern = [];
     let selectedColor = null;
     let undoStack = [];
@@ -1124,7 +1227,7 @@
       };
     }
 
-    function drawCell(x, y, size, color, label) {
+    function drawCell(x, y, size, color, label, gridX, gridY) {
       ctx.fillStyle = color.hex;
       if (beadShape === "round") {
         ctx.beginPath();
@@ -1139,6 +1242,10 @@
       }
       ctx.strokeStyle = "rgba(23,32,31,0.12)";
       ctx.strokeRect(x, y, size, size);
+      if (showCoordinates && (gridX % 5 === 0 || gridY % 5 === 0)) {
+        ctx.strokeStyle = "rgba(23,32,31,0.24)";
+        ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+      }
       if (showNumbers && size >= 14) {
         const dark = distance(color.rgb, { r: 255, g: 255, b: 255 }) > distance(color.rgb, { r: 0, g: 0, b: 0 });
         ctx.fillStyle = dark ? "rgba(255,255,255,0.92)" : "rgba(23,32,31,0.86)";
@@ -1146,6 +1253,13 @@
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(label, x + size / 2, y + size / 2);
+      }
+      if (showCoordinates && size >= 20 && (gridY === 0 || gridX === 0)) {
+        ctx.fillStyle = "rgba(23,32,31,0.72)";
+        ctx.font = `${Math.max(7, Math.floor(size * 0.23))}px Arial`;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(gridY === 0 ? gridX + 1 : gridY + 1, x + 3, y + 3);
       }
     }
 
@@ -1171,7 +1285,7 @@
 
       currentPattern.forEach((row, y) => {
         row.forEach((color, x) => {
-          drawCell(x * cell, y * cell, cell, color, color.index + 1);
+          drawCell(x * cell, y * cell, cell, color, color.index + 1, x, y);
         });
       });
 
@@ -1259,7 +1373,8 @@
       const total = width * height;
       const boardsAcross = Math.ceil(width / 29);
       const boardsDown = Math.ceil(height / 29);
-      const cm = (width * 0.5).toFixed(1);
+      const spacing = Number(beadSize.value);
+      const cm = (width * spacing).toFixed(1);
       const iron = total < 900 ? "20s" : total < 2500 ? "30s" : "45s";
       const hints = {
         keychain: "钥匙扣建议保留明显外轮廓，并在顶部预留开圈位置。",
@@ -1287,13 +1402,17 @@
 
     function downloadPattern() {
       const link = document.createElement("a");
-      link.download = "拼豆图纸.png";
+      link.download = `${safeFilename(projectName.value)}-图纸.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     }
 
-    function downloadText(filename, text) {
-      const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+    function safeFilename(value) {
+      return (value || "拼豆作品").replace(/[\\/:*?"<>|]/g, "").trim() || "拼豆作品";
+    }
+
+    function downloadText(filename, text, type = "text/plain;charset=utf-8") {
+      const blob = new Blob([text], { type });
       const link = document.createElement("a");
       link.download = filename;
       link.href = URL.createObjectURL(blob);
@@ -1305,6 +1424,8 @@
       if (!currentPattern.length) return;
       const counts = calculateCounts();
       const rows = [
+        ["project", "", "", "", projectName.value, "", ""].join(","),
+        ["notes", "", "", "", projectNotes.value.replaceAll(",", "，"), "", ""].join(","),
         ["type", "x", "y", "colorNumber", "colorName", "hex", "count"].join(",")
       ];
       [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([index, count]) => {
@@ -1316,40 +1437,75 @@
           rows.push(["cell", x + 1, y + 1, color.index + 1, color.name, color.hex, ""].join(","));
         });
       });
-      downloadText("拼豆颜色清单.csv", rows.join("\n"));
+      downloadText(`${safeFilename(projectName.value)}-颜色清单.csv`, rows.join("\n"), "text/csv;charset=utf-8");
     }
 
-    function saveProject() {
+    function buildProject() {
       if (!currentPattern.length) return;
-      const project = {
+      return {
+        app: "pin-beads-workshop",
+        version: 2,
         savedAt: new Date().toISOString(),
+        projectName: projectName.value,
+        projectNotes: projectNotes.value,
         gridWidth: Number(gridWidth.value),
         colorCount: Number(colorCount.value),
         projectType: projectType.value,
+        beadSize: Number(beadSize.value),
         beadShape,
         showNumbers,
+        showCoordinates,
         pattern: snapshotPattern()
       };
+    }
+
+    function saveProject() {
+      const project = buildProject();
+      if (!project) return;
       localStorage.setItem(storageKey, JSON.stringify(project));
       saveBtn.textContent = "已保存";
       window.setTimeout(() => { saveBtn.textContent = "保存"; }, 1400);
     }
 
-    function loadProject() {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      const project = JSON.parse(raw);
+    function applyProject(project) {
+      if (!project || !Array.isArray(project.pattern)) return;
+      projectName.value = project.projectName || projectName.value;
+      projectNotes.value = project.projectNotes || "";
       gridWidth.value = project.gridWidth || gridWidth.value;
       colorCount.value = project.colorCount || colorCount.value;
       projectType.value = project.projectType || projectType.value;
+      beadSize.value = String(project.beadSize || beadSize.value);
       beadShape = project.beadShape || "round";
       showNumbers = project.showNumbers !== false;
+      showCoordinates = project.showCoordinates !== false;
       shapeBtn.textContent = beadShape === "round" ? "圆豆" : "方格";
       numberBtn.textContent = showNumbers ? "显示编号" : "隐藏编号";
+      coordBtn.textContent = showCoordinates ? "隐藏坐标" : "显示坐标";
       undoStack = [];
       restorePattern(project.pattern);
       ui.gridWidthValue.textContent = gridWidth.value;
       ui.colorCountValue.textContent = colorCount.value;
+    }
+
+    function loadProject() {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      applyProject(JSON.parse(raw));
+    }
+
+    function exportProject() {
+      const project = buildProject();
+      if (!project) return;
+      downloadText(`${safeFilename(projectName.value)}.json`, JSON.stringify(project, null, 2), "application/json;charset=utf-8");
+    }
+
+    function importProject(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        applyProject(JSON.parse(reader.result));
+      };
+      reader.readAsText(file);
     }
 
     function clearProject() {
@@ -1394,6 +1550,10 @@
 
     gridWidth.addEventListener("input", renderPattern);
     colorCount.addEventListener("input", renderPattern);
+    beadSize.addEventListener("change", () => {
+      if (!currentPattern.length) return;
+      updateCalc(currentPattern[0].length, currentPattern.length);
+    });
     projectType.addEventListener("change", () => {
       updateCalc(...Object.values(getGridSize()));
       renderPattern();
@@ -1401,15 +1561,27 @@
     shapeBtn.addEventListener("click", () => {
       beadShape = beadShape === "round" ? "square" : "round";
       shapeBtn.textContent = beadShape === "round" ? "圆豆" : "方格";
-      renderPattern();
+      redrawPattern();
     });
     numberBtn.addEventListener("click", () => {
       showNumbers = !showNumbers;
       numberBtn.textContent = showNumbers ? "显示编号" : "隐藏编号";
-      renderPattern();
+      redrawPattern();
     });
+    coordBtn.addEventListener("click", () => {
+      showCoordinates = !showCoordinates;
+      coordBtn.textContent = showCoordinates ? "隐藏坐标" : "显示坐标";
+      redrawPattern();
+    });
+    printBtn.addEventListener("click", () => window.print());
     downloadBtn.addEventListener("click", downloadPattern);
     csvBtn.addEventListener("click", exportCsv);
+    exportJsonBtn.addEventListener("click", exportProject);
+    importJsonBtn.addEventListener("click", () => projectInput.click());
+    projectInput.addEventListener("change", (event) => {
+      importProject(event.target.files[0]);
+      event.target.value = "";
+    });
     saveBtn.addEventListener("click", saveProject);
     loadBtn.addEventListener("click", loadProject);
     clearProjectBtn.addEventListener("click", clearProject);
