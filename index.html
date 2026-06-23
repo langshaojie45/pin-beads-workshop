@@ -1057,8 +1057,8 @@
             </div>
 
             <div class="toggle-row">
-              <button id="shapeBtn" type="button">圆豆</button>
-              <button id="numberBtn" type="button">显示编号</button>
+              <button id="shapeBtn" type="button">方格</button>
+              <button id="numberBtn" type="button">隐藏色号</button>
               <button id="coordBtn" type="button">隐藏坐标</button>
               <button id="printBtn" type="button">打印图纸</button>
             </div>
@@ -1182,24 +1182,24 @@
 
   <script>
     const palette = [
-      { name: "白", hex: "#f8f6ee" },
-      { name: "奶油", hex: "#ead8a4" },
-      { name: "黄", hex: "#f6c744" },
-      { name: "橙", hex: "#ef8b36" },
-      { name: "红", hex: "#d94845" },
-      { name: "粉", hex: "#e87aa3" },
-      { name: "紫", hex: "#7957a8" },
-      { name: "蓝", hex: "#3f6fb5" },
-      { name: "浅蓝", hex: "#77bce6" },
-      { name: "青绿", hex: "#30a99a" },
-      { name: "绿", hex: "#4d9a53" },
-      { name: "深绿", hex: "#24684d" },
-      { name: "棕", hex: "#8a5a3c" },
-      { name: "肤色", hex: "#e8b98f" },
-      { name: "灰", hex: "#9ca3a5" },
-      { name: "深灰", hex: "#4e5658" },
-      { name: "黑", hex: "#171a1c" },
-      { name: "透明蓝", hex: "#b8ddf1" }
+      { name: "白", code: "H2", hex: "#f8f6ee" },
+      { name: "奶油", code: "E14", hex: "#ead8a4" },
+      { name: "黄", code: "A6", hex: "#f6c744" },
+      { name: "橙", code: "A9", hex: "#ef8b36" },
+      { name: "红", code: "F8", hex: "#d94845" },
+      { name: "粉", code: "F14", hex: "#e87aa3" },
+      { name: "紫", code: "D7", hex: "#7957a8" },
+      { name: "蓝", code: "C7", hex: "#3f6fb5" },
+      { name: "浅蓝", code: "D2", hex: "#77bce6" },
+      { name: "青绿", code: "B20", hex: "#30a99a" },
+      { name: "绿", code: "B15", hex: "#4d9a53" },
+      { name: "深绿", code: "B11", hex: "#24684d" },
+      { name: "棕", code: "G17", hex: "#8a5a3c" },
+      { name: "肤色", code: "E12", hex: "#e8b98f" },
+      { name: "灰", code: "H6", hex: "#9ca3a5" },
+      { name: "深灰", code: "H7", hex: "#4e5658" },
+      { name: "黑", code: "H1", hex: "#171a1c" },
+      { name: "透明蓝", code: "C23", hex: "#b8ddf1" }
     ];
 
     const playIcons = document.querySelectorAll(".play-icon");
@@ -1262,13 +1262,14 @@
     };
 
     let sourceImage = null;
-    let beadShape = "round";
+    let beadShape = "square";
     let showNumbers = true;
     let showCoordinates = true;
     let currentPattern = [];
     let selectedColor = null;
     let undoStack = [];
     let renderedCellSize = 0;
+    let renderOrigin = { x: 0, y: 0 };
     const storageKey = "pin-beads-workshop-project";
     const gameBestKey = "pin-beads-workshop-best";
     let gameMode = "memory";
@@ -1428,6 +1429,96 @@
       };
     }
 
+    function chartTextColor(color) {
+      return distance(color.rgb, { r: 255, g: 255, b: 255 }) > distance(color.rgb, { r: 0, g: 0, b: 0 })
+        ? "rgba(255,255,255,0.92)"
+        : "rgba(23,32,31,0.84)";
+    }
+
+    function drawChartGrid(width, height, cell, left, top) {
+      const gridWidthPx = width * cell;
+      const gridHeightPx = height * cell;
+      ctx.fillStyle = "#fffdfa";
+      ctx.fillRect(left, top, gridWidthPx, gridHeightPx);
+
+      for (let x = 0; x <= width; x += 1) {
+        const px = left + x * cell + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(px, top);
+        ctx.lineTo(px, top + gridHeightPx);
+        ctx.strokeStyle = x % 10 === 0 ? "rgba(204,80,71,0.76)" : x % 5 === 0 ? "rgba(210,122,85,0.46)" : "rgba(132,142,145,0.28)";
+        ctx.lineWidth = x % 10 === 0 ? 1.4 : 0.7;
+        ctx.stroke();
+      }
+
+      for (let y = 0; y <= height; y += 1) {
+        const py = top + y * cell + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(left, py);
+        ctx.lineTo(left + gridWidthPx, py);
+        ctx.strokeStyle = y % 10 === 0 ? "rgba(204,80,71,0.76)" : y % 5 === 0 ? "rgba(210,122,85,0.46)" : "rgba(132,142,145,0.28)";
+        ctx.lineWidth = y % 10 === 0 ? 1.4 : 0.7;
+        ctx.stroke();
+      }
+    }
+
+    function drawChartCoordinates(width, height, cell, left, top) {
+      if (!showCoordinates) return;
+      const gridWidthPx = width * cell;
+      const gridHeightPx = height * cell;
+      ctx.fillStyle = "rgba(35,45,47,0.78)";
+      ctx.font = `${Math.max(7, Math.min(10, Math.floor(cell * 0.55)))}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (let x = 0; x < width; x += 1) {
+        const label = String(x + 1);
+        const px = left + x * cell + cell / 2;
+        ctx.fillText(label, px, top - 12);
+        ctx.fillText(label, px, top + gridHeightPx + 12);
+      }
+      ctx.textAlign = "right";
+      for (let y = 0; y < height; y += 1) {
+        const label = String(y + 1);
+        const py = top + y * cell + cell / 2;
+        ctx.fillText(label, left - 8, py);
+      }
+      ctx.textAlign = "left";
+      for (let y = 0; y < height; y += 1) {
+        const label = String(y + 1);
+        const py = top + y * cell + cell / 2;
+        ctx.fillText(label, left + gridWidthPx + 8, py);
+      }
+    }
+
+    function drawChartLegend(counts, startY) {
+      const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+      const gap = 8;
+      const cardHeight = 32;
+      const columns = Math.max(1, Math.floor((canvas.width - 32) / 150));
+      const cardWidth = Math.floor((canvas.width - 32 - gap * (columns - 1)) / columns);
+      ctx.font = "bold 13px Arial";
+      ctx.textBaseline = "middle";
+      sorted.forEach(([index, count], i) => {
+        const color = rgbPalette[index];
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        const x = 16 + col * (cardWidth + gap);
+        const y = startY + row * (cardHeight + 8);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(x, y, cardWidth, cardHeight);
+        ctx.strokeStyle = "rgba(23,32,31,0.12)";
+        ctx.strokeRect(x + 0.5, y + 0.5, cardWidth - 1, cardHeight - 1);
+        ctx.fillStyle = color.hex;
+        ctx.fillRect(x, y, 46, cardHeight);
+        ctx.fillStyle = chartTextColor(color);
+        ctx.textAlign = "center";
+        ctx.fillText(color.code, x + 23, y + cardHeight / 2);
+        ctx.fillStyle = "rgba(23,32,31,0.88)";
+        ctx.textAlign = "left";
+        ctx.fillText(`${color.code} (${count})`, x + 56, y + cardHeight / 2);
+      });
+    }
+
     function drawCell(x, y, size, color, label, gridX, gridY) {
       ctx.fillStyle = color.hex;
       if (beadShape === "round") {
@@ -1439,28 +1530,16 @@
         ctx.arc(x + size * 0.38, y + size * 0.34, size * 0.13, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
+        ctx.fillRect(x + 0.8, y + 0.8, size - 1.6, size - 1.6);
       }
-      ctx.strokeStyle = "rgba(23,32,31,0.12)";
-      ctx.strokeRect(x, y, size, size);
-      if (showCoordinates && (gridX % 5 === 0 || gridY % 5 === 0)) {
-        ctx.strokeStyle = "rgba(23,32,31,0.24)";
-        ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
-      }
-      if (showNumbers && size >= 14) {
-        const dark = distance(color.rgb, { r: 255, g: 255, b: 255 }) > distance(color.rgb, { r: 0, g: 0, b: 0 });
-        ctx.fillStyle = dark ? "rgba(255,255,255,0.92)" : "rgba(23,32,31,0.86)";
-        ctx.font = `${Math.max(8, Math.floor(size * 0.34))}px Arial`;
+      ctx.strokeStyle = beadShape === "round" ? "rgba(23,32,31,0.12)" : "rgba(23,32,31,0.18)";
+      ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+      if (showNumbers && size >= 9) {
+        ctx.fillStyle = chartTextColor(color);
+        ctx.font = `bold ${Math.max(6, Math.min(10, Math.floor(size * 0.42)))}px Arial`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(label, x + size / 2, y + size / 2);
-      }
-      if (showCoordinates && size >= 20 && (gridY === 0 || gridX === 0)) {
-        ctx.fillStyle = "rgba(23,32,31,0.72)";
-        ctx.font = `${Math.max(7, Math.floor(size * 0.23))}px Arial`;
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.fillText(gridY === 0 ? gridX + 1 : gridY + 1, x + 3, y + 3);
       }
     }
 
@@ -1476,21 +1555,33 @@
       if (!currentPattern.length) return;
       const height = currentPattern.length;
       const width = currentPattern[0].length;
-      const cell = Math.max(9, Math.floor(Math.min(980 / width, 980 / height)));
+      const counts = calculateCounts();
+      const left = showCoordinates ? 30 : 14;
+      const top = showCoordinates ? 30 : 14;
+      const right = showCoordinates ? 30 : 14;
+      const bottom = showCoordinates ? 30 : 14;
+      const cell = Math.max(9, Math.floor(Math.min(1120 / width, 980 / height)));
+      const estimatedCanvasWidth = left + width * cell + right;
+      const legendColumns = Math.max(1, Math.floor((estimatedCanvasWidth - 32) / 150));
+      const legendRows = Math.ceil(counts.size / legendColumns);
+      const legendHeight = Math.max(48, legendRows * 40 + 12);
       renderedCellSize = cell;
-      canvas.width = width * cell;
-      canvas.height = height * cell;
+      renderOrigin = { x: left, y: top };
+      canvas.width = left + width * cell + right;
+      canvas.height = top + height * cell + bottom + legendHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawChartGrid(width, height, cell, left, top);
 
       currentPattern.forEach((row, y) => {
         row.forEach((color, x) => {
-          drawCell(x * cell, y * cell, cell, color, color.index + 1, x, y);
+          drawCell(left + x * cell, top + y * cell, cell, color, color.code, x, y);
         });
       });
+      drawChartCoordinates(width, height, cell, left, top);
+      drawChartLegend(counts, top + height * cell + bottom);
 
-      const counts = calculateCounts();
       updatePalette(counts);
       updateCalc(width, height);
       ui.previewMeta.textContent = `${width} x ${height} / ${width * height} 颗`;
@@ -1556,7 +1647,7 @@
         item.type = "button";
         item.className = "color-item";
         if (selectedColor && selectedColor.index === index) item.classList.add("active");
-        item.innerHTML = `<span class="swatch" style="--c:${color.hex}"></span><span>${index + 1}. ${color.name}</span><strong>${count}</strong>`;
+        item.innerHTML = `<span class="swatch" style="--c:${color.hex}"></span><span>${color.code} ${color.name}</span><strong>${count}</strong>`;
         item.title = `${Math.round((count / total) * 100)}%`;
         item.addEventListener("click", () => selectPaintColor(color));
         paletteList.appendChild(item);
@@ -1566,7 +1657,7 @@
     function selectPaintColor(color) {
       selectedColor = color;
       selectedSwatch.style.setProperty("--c", color.hex);
-      selectedPaint.textContent = `${color.index + 1}. ${color.name}`;
+      selectedPaint.textContent = `${color.code} ${color.name}`;
       updatePalette(calculateCounts());
     }
 
@@ -1625,17 +1716,17 @@
       if (!currentPattern.length) return;
       const counts = calculateCounts();
       const rows = [
-        ["project", "", "", "", projectName.value, "", ""].join(","),
-        ["notes", "", "", "", projectNotes.value.replaceAll(",", "，"), "", ""].join(","),
-        ["type", "x", "y", "colorNumber", "colorName", "hex", "count"].join(",")
+        ["project", "", "", "", "", projectName.value, "", ""].join(","),
+        ["notes", "", "", "", "", projectNotes.value.replaceAll(",", "，"), "", ""].join(","),
+        ["type", "x", "y", "colorCode", "colorNumber", "colorName", "hex", "count"].join(",")
       ];
       [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([index, count]) => {
         const color = rgbPalette[index];
-        rows.push(["summary", "", "", index + 1, color.name, color.hex, count].join(","));
+        rows.push(["summary", "", "", color.code, index + 1, color.name, color.hex, count].join(","));
       });
       currentPattern.forEach((row, y) => {
         row.forEach((color, x) => {
-          rows.push(["cell", x + 1, y + 1, color.index + 1, color.name, color.hex, ""].join(","));
+          rows.push(["cell", x + 1, y + 1, color.code, color.index + 1, color.name, color.hex, ""].join(","));
         });
       });
       downloadText(`${safeFilename(projectName.value)}-颜色清单.csv`, rows.join("\n"), "text/csv;charset=utf-8");
@@ -1676,11 +1767,11 @@
       colorCount.value = project.colorCount || colorCount.value;
       projectType.value = project.projectType || projectType.value;
       beadSize.value = String(project.beadSize || beadSize.value);
-      beadShape = project.beadShape || "round";
+      beadShape = project.beadShape || "square";
       showNumbers = project.showNumbers !== false;
       showCoordinates = project.showCoordinates !== false;
       shapeBtn.textContent = beadShape === "round" ? "圆豆" : "方格";
-      numberBtn.textContent = showNumbers ? "显示编号" : "隐藏编号";
+      numberBtn.textContent = showNumbers ? "隐藏色号" : "显示色号";
       coordBtn.textContent = showCoordinates ? "隐藏坐标" : "显示坐标";
       undoStack = [];
       restorePattern(project.pattern);
@@ -1726,8 +1817,10 @@
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const x = Math.floor(((event.clientX - rect.left) * scaleX) / renderedCellSize);
-      const y = Math.floor(((event.clientY - rect.top) * scaleY) / renderedCellSize);
+      const canvasX = (event.clientX - rect.left) * scaleX - renderOrigin.x;
+      const canvasY = (event.clientY - rect.top) * scaleY - renderOrigin.y;
+      const x = Math.floor(canvasX / renderedCellSize);
+      const y = Math.floor(canvasY / renderedCellSize);
       if (!currentPattern[y] || !currentPattern[y][x]) return;
       if (currentPattern[y][x].index === selectedColor.index) return;
       rememberUndo();
@@ -1972,7 +2065,7 @@
     });
     numberBtn.addEventListener("click", () => {
       showNumbers = !showNumbers;
-      numberBtn.textContent = showNumbers ? "显示编号" : "隐藏编号";
+      numberBtn.textContent = showNumbers ? "隐藏色号" : "显示色号";
       redrawPattern();
     });
     coordBtn.addEventListener("click", () => {
