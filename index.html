@@ -653,6 +653,142 @@
       font-size: 12px;
     }
 
+    .game-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .game-board,
+    .game-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 12px 34px rgba(24, 47, 43, 0.08);
+    }
+
+    .game-board {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .game-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .game-tabs {
+      display: inline-grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+    }
+
+    .game-tab {
+      min-height: 34px;
+      padding: 0 12px;
+      border-color: transparent;
+      background: transparent;
+      white-space: nowrap;
+    }
+
+    .game-tab.active {
+      background: var(--panel);
+      border-color: var(--line);
+      color: var(--teal-dark);
+      font-weight: 700;
+    }
+
+    .game-status {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .game-grid {
+      width: min(100%, 560px);
+      justify-self: center;
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(var(--game-size), minmax(0, 1fr));
+      gap: 6px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #dce6e2;
+      box-shadow: inset 0 0 0 1px #c5d0cc;
+    }
+
+    .game-cell {
+      position: relative;
+      min-width: 0;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 1px solid rgba(23, 32, 31, 0.16);
+      background: var(--cell);
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.13), inset 0 3px 0 rgba(255, 255, 255, 0.36);
+      cursor: pointer;
+      transition: transform 130ms ease, opacity 130ms ease, filter 130ms ease;
+    }
+
+    .game-cell:hover {
+      transform: translateY(-1px);
+    }
+
+    .game-cell.hidden {
+      background: #f7faf9;
+      box-shadow: inset 0 0 0 1px rgba(23, 32, 31, 0.08);
+    }
+
+    .game-cell.correct {
+      outline: 3px solid rgba(31, 143, 131, 0.3);
+    }
+
+    .game-cell.wrong {
+      filter: saturate(0.5);
+      outline: 3px solid rgba(216, 87, 122, 0.35);
+    }
+
+    .game-panel {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .game-score-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .target-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .game-log {
+      min-height: 48px;
+      padding: 10px;
+      border-radius: 8px;
+      background: var(--soft);
+      color: var(--teal-dark);
+      font-size: 14px;
+      line-height: 1.6;
+    }
     .tips {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -788,7 +924,7 @@
       <nav class="nav" aria-label="页面导航">
         <a href="#plays">玩法</a>
         <a href="#converter">转换</a>
-        <a href="#calculator">估算</a>
+                <a href="#games">游戏</a>        <a href="#calculator">估算</a>
         <a href="#tips">熨烫</a>
       </nav>
     </header>
@@ -980,6 +1116,45 @@
         </div>
       </section>
 
+      <section id="games">
+        <div class="section-head">
+          <div>
+            <h2>拼豆小游戏</h2>
+            <p class="hint">用颜色记忆和找色挑战练手感，熟悉色板后再做图纸会更快。</p>
+          </div>
+        </div>
+        <div class="game-shell">
+          <div class="game-board">
+            <div class="game-toolbar">
+              <div class="game-tabs" aria-label="小游戏模式">
+                <button class="game-tab active" id="memoryGameBtn" type="button">记忆拼图</button>
+                <button class="game-tab" id="huntGameBtn" type="button">找目标色</button>
+              </div>
+              <div class="game-status" id="gameStatus">记住颜色，倒计时结束后还原图案。</div>
+            </div>
+            <div class="game-grid" id="gameGrid" style="--game-size:5" aria-label="拼豆小游戏棋盘"></div>
+          </div>
+
+          <aside class="game-panel">
+            <h3 id="gameTitle">记忆拼图</h3>
+            <div class="game-score-grid">
+              <div class="calc-box"><strong id="gameScore">0</strong><span>得分</span></div>
+              <div class="calc-box"><strong id="gameBest">0</strong><span>最高分</span></div>
+              <div class="calc-box"><strong id="gameRound">1</strong><span>回合</span></div>
+              <div class="calc-box"><strong id="gameTimer">5s</strong><span>剩余时间</span></div>
+            </div>
+            <div class="target-chip">
+              <span class="swatch" id="gameTargetSwatch" style="--c:#1f8f83"></span>
+              <span id="gameTargetText">准备开始</span>
+            </div>
+            <div class="button-row">
+              <button class="primary" id="gameStartBtn" type="button">开始游戏</button>
+              <button id="gameResetBtn" type="button">重置</button>
+            </div>
+            <div class="game-log" id="gameLog">记忆模式会先展示图案，隐藏后按顺序点出高亮颜色。</div>
+          </aside>
+        </div>
+      </section>
       <section id="tips">
         <div class="section-head">
           <div>
@@ -1058,6 +1233,20 @@
     const paletteList = document.querySelector("#paletteList");
     const selectedSwatch = document.querySelector("#selectedSwatch");
     const selectedPaint = document.querySelector("#selectedPaint");
+    const memoryGameBtn = document.querySelector("#memoryGameBtn");
+    const huntGameBtn = document.querySelector("#huntGameBtn");
+    const gameGrid = document.querySelector("#gameGrid");
+    const gameStatus = document.querySelector("#gameStatus");
+    const gameTitle = document.querySelector("#gameTitle");
+    const gameScore = document.querySelector("#gameScore");
+    const gameBest = document.querySelector("#gameBest");
+    const gameRound = document.querySelector("#gameRound");
+    const gameTimer = document.querySelector("#gameTimer");
+    const gameTargetSwatch = document.querySelector("#gameTargetSwatch");
+    const gameTargetText = document.querySelector("#gameTargetText");
+    const gameStartBtn = document.querySelector("#gameStartBtn");
+    const gameResetBtn = document.querySelector("#gameResetBtn");
+    const gameLog = document.querySelector("#gameLog");
 
     const ui = {
       gridWidthValue: document.querySelector("#gridWidthValue"),
@@ -1081,6 +1270,18 @@
     let undoStack = [];
     let renderedCellSize = 0;
     const storageKey = "pin-beads-workshop-project";
+    const gameBestKey = "pin-beads-workshop-best";
+    let gameMode = "memory";
+    let gameCells = [];
+    let gameSequence = [];
+    let gameStep = 0;
+    let gameActive = false;
+    let gameHidden = false;
+    let gameTimeLeft = 5;
+    let gameTimerId = null;
+    let score = 0;
+    let round = 1;
+    let targetColorIndex = 0;
 
     function hexToRgb(hex) {
       const value = hex.replace("#", "");
@@ -1534,6 +1735,212 @@
       redrawPattern();
     }
 
+    function gamePalette() {
+      return rgbPalette.slice(2, 12);
+    }
+
+    function updateGameStats() {
+      gameScore.textContent = score;
+      gameRound.textContent = round;
+      gameTimer.textContent = `${gameTimeLeft}s`;
+      gameBest.textContent = localStorage.getItem(gameBestKey) || "0";
+    }
+
+    function setGameLog(message) {
+      gameLog.textContent = message;
+      gameStatus.textContent = message;
+    }
+
+    function shuffle(items) {
+      const copy = [...items];
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function buildGameCells(size) {
+      const colors = gamePalette();
+      const total = size * size;
+      gameCells = Array.from({ length: total }, (_, index) => ({
+        index,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        found: false
+      }));
+      gameGrid.style.setProperty("--game-size", size);
+      renderGameGrid();
+    }
+
+    function renderGameGrid() {
+      gameGrid.innerHTML = "";
+      const fragment = document.createDocumentFragment();
+      gameCells.forEach((cell) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "game-cell";
+        if (gameHidden && !cell.found) button.classList.add("hidden");
+        if (cell.found) button.classList.add("correct");
+        button.style.setProperty("--cell", gameHidden && !cell.found ? "#f7faf9" : cell.color.hex);
+        button.setAttribute("aria-label", `第 ${cell.index + 1} 颗拼豆`);
+        button.addEventListener("click", () => handleGameCell(cell.index, button));
+        fragment.appendChild(button);
+      });
+      gameGrid.appendChild(fragment);
+    }
+
+    function setGameMode(mode) {
+      stopGameTimer();
+      gameMode = mode;
+      score = 0;
+      round = 1;
+      gameActive = false;
+      gameHidden = false;
+      memoryGameBtn.classList.toggle("active", mode === "memory");
+      huntGameBtn.classList.toggle("active", mode === "hunt");
+      gameTitle.textContent = mode === "memory" ? "记忆拼图" : "找目标色";
+      gameStartBtn.textContent = "开始游戏";
+      gameTimeLeft = mode === "memory" ? 5 : 20;
+      gameTargetText.textContent = mode === "memory" ? "记住颜色序列" : "找出目标颜色";
+      gameTargetSwatch.style.setProperty("--c", mode === "memory" ? "#1f8f83" : "#d8577a");
+      setGameLog(mode === "memory" ? "记忆模式会先展示图案，隐藏后按顺序点出目标颜色。" : "找色模式会给出目标颜色，限时点完所有同色拼豆。");
+      buildGameCells(mode === "memory" ? 5 : 6);
+      updateGameStats();
+    }
+
+    function startGame() {
+      stopGameTimer();
+      gameActive = true;
+      gameHidden = false;
+      gameStep = 0;
+      gameTimeLeft = gameMode === "memory" ? Math.max(3, 6 - Math.min(round, 3)) : Math.max(10, 22 - round * 2);
+      buildGameCells(gameMode === "memory" ? 5 : 6);
+      if (gameMode === "memory") {
+        startMemoryGame();
+      } else {
+        startHuntGame();
+      }
+      updateGameStats();
+    }
+
+    function startMemoryGame() {
+      const length = Math.min(8, 3 + round);
+      gameSequence = shuffle(gameCells).slice(0, length).map((cell) => cell.index);
+      const first = gameCells[gameSequence[0]].color;
+      gameTargetSwatch.style.setProperty("--c", first.hex);
+      gameTargetText.textContent = `目标 1 / ${gameSequence.length}: ${first.name}`;
+      setGameLog("先记住棋盘颜色，倒计时结束后开始点击目标。");
+      startGameTimer(() => {
+        gameHidden = true;
+        setGameLog("开始还原：按提示依次点击目标颜色。");
+        renderGameGrid();
+      });
+    }
+
+    function startHuntGame() {
+      const colors = gamePalette();
+      const target = colors[Math.floor(Math.random() * colors.length)];
+      targetColorIndex = target.index;
+      gameTargetSwatch.style.setProperty("--c", target.hex);
+      gameTargetText.textContent = `找出所有 ${target.name}`;
+      setGameLog("限时点击所有目标颜色，点错会扣分。");
+      startGameTimer(() => finishGame(false));
+    }
+
+    function startGameTimer(onDone) {
+      updateGameStats();
+      gameTimerId = window.setInterval(() => {
+        gameTimeLeft -= 1;
+        updateGameStats();
+        if (gameTimeLeft <= 0) {
+          stopGameTimer();
+          onDone();
+        }
+      }, 1000);
+    }
+
+    function stopGameTimer() {
+      if (gameTimerId) window.clearInterval(gameTimerId);
+      gameTimerId = null;
+    }
+
+    function handleGameCell(index, button) {
+      if (!gameActive) return;
+      if (gameMode === "memory") {
+        handleMemoryCell(index, button);
+      } else {
+        handleHuntCell(index, button);
+      }
+    }
+
+    function handleMemoryCell(index, button) {
+      if (!gameHidden) return;
+      const targetIndex = gameSequence[gameStep];
+      if (index === targetIndex) {
+        gameCells[index].found = true;
+        score += 10;
+        gameStep += 1;
+        const nextIndex = gameSequence[gameStep];
+        if (nextIndex === undefined) {
+          finishGame(true);
+          return;
+        }
+        const nextColor = gameCells[nextIndex].color;
+        gameTargetSwatch.style.setProperty("--c", nextColor.hex);
+        gameTargetText.textContent = `目标 ${gameStep + 1} / ${gameSequence.length}: ${nextColor.name}`;
+        renderGameGrid();
+      } else {
+        button.classList.add("wrong");
+        score = Math.max(0, score - 4);
+        setGameLog("点错了，观察颜色位置再继续。");
+      }
+      updateGameStats();
+    }
+
+    function handleHuntCell(index, button) {
+      const cell = gameCells[index];
+      if (cell.found) return;
+      if (cell.color.index === targetColorIndex) {
+        cell.found = true;
+        score += 6;
+        button.classList.add("correct");
+        const remaining = gameCells.some((item) => item.color.index === targetColorIndex && !item.found);
+        if (!remaining) finishGame(true);
+      } else {
+        score = Math.max(0, score - 3);
+        button.classList.add("wrong");
+      }
+      updateGameStats();
+    }
+
+    function finishGame(won) {
+      stopGameTimer();
+      gameActive = false;
+      gameHidden = false;
+      const best = Math.max(Number(localStorage.getItem(gameBestKey) || 0), score);
+      localStorage.setItem(gameBestKey, String(best));
+      if (won) {
+        round += 1;
+        setGameLog("成功！下一回合难度会提高一点。");
+        gameStartBtn.textContent = "下一回合";
+      } else {
+        setGameLog("时间到。可以重开一局，或者切换模式练习。 ");
+        gameStartBtn.textContent = "再来一局";
+      }
+      renderGameGrid();
+      updateGameStats();
+    }
+
+    function resetGame() {
+      stopGameTimer();
+      score = 0;
+      round = 1;
+      gameActive = false;
+      gameHidden = false;
+      gameTimeLeft = gameMode === "memory" ? 5 : 20;
+      gameStartBtn.textContent = "开始游戏";
+      setGameMode(gameMode);
+    }
     imageInput.addEventListener("change", (event) => loadFile(event.target.files[0]));
     dropZone.addEventListener("dragover", (event) => {
       event.preventDefault();
@@ -1595,11 +2002,25 @@
     sampleBtn.addEventListener("click", createSampleImage);
     fitBtn.addEventListener("click", fitProject);
 
+    memoryGameBtn.addEventListener("click", () => setGameMode("memory"));
+    huntGameBtn.addEventListener("click", () => setGameMode("hunt"));
+    gameStartBtn.addEventListener("click", startGame);
+    gameResetBtn.addEventListener("click", resetGame);
+
     fillPlayIcons();
     makeDemoBoard();
     selectPaintColor(rgbPalette[0]);
     undoBtn.disabled = true;
     createSampleImage();
+    setGameMode("memory");
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
