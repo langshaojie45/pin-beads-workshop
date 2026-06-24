@@ -486,6 +486,13 @@
       padding-inline: 6px;
     }
 
+    .button-row button.active {
+      border-color: var(--teal);
+      background: var(--soft);
+      color: var(--teal-dark);
+      font-weight: 800;
+    }
+
     .drop-zone {
       min-height: 130px;
       display: grid;
@@ -1064,6 +1071,15 @@
               <button id="printBtn" type="button">打印图纸</button>
             </div>
 
+            <div class="button-row compact" aria-label="图纸编辑工具">
+              <button class="active" id="paintToolBtn" type="button">画笔</button>
+              <button id="eraseToolBtn" type="button">橡皮</button>
+              <button id="fillToolBtn" type="button">填充</button>
+              <button id="pickToolBtn" type="button">吸色</button>
+              <button id="mirrorBtn" type="button">镜像</button>
+              <button id="cleanupBtn" type="button">清孤点</button>
+            </div>
+
             <div class="button-row">
               <button class="primary" id="downloadBtn" type="button">下载图纸</button>
               <button id="sampleBtn" type="button">重置示例</button>
@@ -1219,6 +1235,12 @@
     const numberBtn = document.querySelector("#numberBtn");
     const coordBtn = document.querySelector("#coordBtn");
     const printBtn = document.querySelector("#printBtn");
+    const paintToolBtn = document.querySelector("#paintToolBtn");
+    const eraseToolBtn = document.querySelector("#eraseToolBtn");
+    const fillToolBtn = document.querySelector("#fillToolBtn");
+    const pickToolBtn = document.querySelector("#pickToolBtn");
+    const mirrorBtn = document.querySelector("#mirrorBtn");
+    const cleanupBtn = document.querySelector("#cleanupBtn");
     const downloadBtn = document.querySelector("#downloadBtn");
     const sampleBtn = document.querySelector("#sampleBtn");
     const fitBtn = document.querySelector("#fitBtn");
@@ -1268,6 +1290,7 @@
     let showCoordinates = true;
     let currentPattern = [];
     let selectedColor = null;
+    let editTool = "paint";
     let undoStack = [];
     let renderedCellSize = 0;
     let renderOrigin = { x: 0, y: 0 };
@@ -1617,6 +1640,86 @@
       undoBtn.disabled = false;
     }
 
+    function setEditTool(tool) {
+      editTool = tool;
+      [
+        [paintToolBtn, "paint"],
+        [eraseToolBtn, "erase"],
+        [fillToolBtn, "fill"],
+        [pickToolBtn, "pick"]
+      ].forEach(([button, value]) => {
+        button.classList.toggle("active", value === tool);
+      });
+      const labels = {
+        paint: selectedColor ? `画笔：${selectedColor.code} ${selectedColor.name}` : "画笔：先选颜色",
+        erase: "橡皮：点击格子恢复白色",
+        fill: selectedColor ? `填充：${selectedColor.code} ${selectedColor.name}` : "填充：先选颜色",
+        pick: "吸色：点击图纸取色"
+      };
+      selectedPaint.textContent = labels[tool];
+    }
+
+    function floodFillCell(startX, startY, targetColor, replacementColor) {
+      if (targetColor.index === replacementColor.index) return false;
+      const width = currentPattern[0].length;
+      const height = currentPattern.length;
+      const stack = [[startX, startY]];
+      const seen = new Set();
+      while (stack.length) {
+        const [x, y] = stack.pop();
+        const key = `${x},${y}`;
+        if (seen.has(key) || x < 0 || y < 0 || x >= width || y >= height) continue;
+        seen.add(key);
+        if (currentPattern[y][x].index !== targetColor.index) continue;
+        currentPattern[y][x] = replacementColor;
+        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+      }
+      return true;
+    }
+
+    function mirrorPattern() {
+      if (!currentPattern.length) return;
+      rememberUndo();
+      currentPattern = currentPattern.map((row) => [...row].reverse());
+      redrawPattern();
+    }
+
+    function cleanupSpeckles() {
+      if (!currentPattern.length) return;
+      const next = currentPattern.map((row) => [...row]);
+      let changes = 0;
+      for (let y = 0; y < currentPattern.length; y += 1) {
+        for (let x = 0; x < currentPattern[y].length; x += 1) {
+          const current = currentPattern[y][x];
+          const neighbors = [
+            currentPattern[y - 1]?.[x],
+            currentPattern[y + 1]?.[x],
+            currentPattern[y]?.[x - 1],
+            currentPattern[y]?.[x + 1]
+          ].filter(Boolean);
+          const same = neighbors.filter((color) => color.index === current.index).length;
+          if (same > 0 || neighbors.length < 3) continue;
+          const counts = new Map();
+          neighbors.forEach((color) => counts.set(color.index, (counts.get(color.index) || 0) + 1));
+          const [bestIndex, bestCount] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+          if (bestCount >= 2) {
+            next[y][x] = rgbPalette[bestIndex];
+            changes += 1;
+          }
+        }
+      }
+      if (!changes) {
+        cleanupBtn.textContent = "无孤点";
+        window.setTimeout(() => { cleanupBtn.textContent = "清孤点"; }, 1200);
+        return;
+      }
+      rememberUndo();
+      currentPattern = next;
+      redrawPattern();
+      cleanupBtn.textContent = `清${changes}格`;
+      window.setTimeout(() => { cleanupBtn.textContent = "清孤点"; }, 1200);
+    }
+
     function renderPattern() {
       if (!sourceImage) return;
       const { width, height } = getGridSize();
@@ -1669,7 +1772,7 @@
     function selectPaintColor(color) {
       selectedColor = color;
       selectedSwatch.style.setProperty("--c", color.hex);
-      selectedPaint.textContent = `${color.code} ${color.name}`;
+      setEditTool(editTool === "erase" || editTool === "pick" ? "paint" : editTool);
       updatePalette(calculateCounts());
     }
 
@@ -1825,7 +1928,7 @@
     }
 
     function paintCanvas(event) {
-      if (!selectedColor || !currentPattern.length || !renderedCellSize) return;
+      if (!currentPattern.length || !renderedCellSize) return;
       const rect = canvas.getBoundingClientRect();
       const scaleX = renderedCanvasSize.width / rect.width;
       const scaleY = renderedCanvasSize.height / rect.height;
@@ -1834,9 +1937,24 @@
       const x = Math.floor(canvasX / renderedCellSize);
       const y = Math.floor(canvasY / renderedCellSize);
       if (!currentPattern[y] || !currentPattern[y][x]) return;
-      if (currentPattern[y][x].index === selectedColor.index) return;
+      if (editTool === "pick") {
+        selectPaintColor(currentPattern[y][x]);
+        return;
+      }
+      const replacement = editTool === "erase" ? rgbPalette[0] : selectedColor;
+      if (!replacement) return;
+      if (editTool === "fill") {
+        rememberUndo();
+        if (!floodFillCell(x, y, currentPattern[y][x], replacement)) {
+          undoStack.pop();
+          undoBtn.disabled = undoStack.length === 0;
+        }
+        redrawPattern();
+        return;
+      }
+      if (currentPattern[y][x].index === replacement.index) return;
       rememberUndo();
-      currentPattern[y][x] = selectedColor;
+      currentPattern[y][x] = replacement;
       redrawPattern();
     }
 
@@ -2086,6 +2204,12 @@
       redrawPattern();
     });
     printBtn.addEventListener("click", () => window.print());
+    paintToolBtn.addEventListener("click", () => setEditTool("paint"));
+    eraseToolBtn.addEventListener("click", () => setEditTool("erase"));
+    fillToolBtn.addEventListener("click", () => setEditTool("fill"));
+    pickToolBtn.addEventListener("click", () => setEditTool("pick"));
+    mirrorBtn.addEventListener("click", mirrorPattern);
+    cleanupBtn.addEventListener("click", cleanupSpeckles);
     downloadBtn.addEventListener("click", downloadPattern);
     csvBtn.addEventListener("click", exportCsv);
     exportJsonBtn.addEventListener("click", exportProject);
