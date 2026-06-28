@@ -19,6 +19,7 @@
       --rose: #d8577a;
       --gold: #d79a22;
       --blue: #4c70bd;
+      --panel-strong: #f6faf8;
       --shadow: 0 18px 50px rgba(24, 47, 43, 0.12);
       font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
     }
@@ -49,9 +50,10 @@
       min-height: 40px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--panel);
+      background: linear-gradient(180deg, #ffffff, #f7fbf9);
       color: var(--ink);
       cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
     }
 
     button:hover {
@@ -422,9 +424,13 @@
 
     .workspace {
       display: grid;
-      grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
-      gap: 16px;
+      grid-template-columns: minmax(310px, 390px) minmax(0, 1fr);
+      gap: 18px;
       align-items: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.56);
     }
 
     .controls,
@@ -432,15 +438,32 @@
     .palette,
     .calculator {
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.88);
-      box-shadow: 0 12px 34px rgba(24, 47, 43, 0.08);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 10px 24px rgba(24, 47, 43, 0.07);
     }
 
     .controls {
+      position: sticky;
+      top: 82px;
       padding: 16px;
       display: grid;
       gap: 14px;
+    }
+
+    .control-group {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel-strong);
+    }
+
+    .control-group-title {
+      color: var(--teal-dark);
+      font-size: 13px;
+      font-weight: 900;
     }
 
     .field {
@@ -488,7 +511,9 @@
 
     .button-row button.active {
       border-color: var(--teal);
-      background: var(--soft);
+      background:
+        linear-gradient(135deg, rgba(31,143,131,0.08), rgba(76,112,189,0.08)),
+        var(--soft);
       color: var(--teal-dark);
       font-weight: 800;
     }
@@ -531,7 +556,7 @@
       gap: 14px;
       padding: 14px 16px;
       border-bottom: 1px solid var(--line);
-      background: #fff;
+      background: linear-gradient(180deg, #ffffff, #f6faf8);
     }
 
     .preview-head div {
@@ -546,13 +571,10 @@
       padding: 18px;
       overflow: hidden;
       background:
-        linear-gradient(45deg, #edf3f1 25%, transparent 25%),
-        linear-gradient(-45deg, #edf3f1 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #edf3f1 75%),
-        linear-gradient(-45deg, transparent 75%, #edf3f1 75%),
+        linear-gradient(90deg, rgba(31,143,131,0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(31,143,131,0.08) 1px, transparent 1px),
         #f8fbfa;
-      background-size: 26px 26px;
-      background-position: 0 0, 0 13px, 13px -13px, -13px 0;
+      background-size: 20px 20px;
     }
 
     canvas {
@@ -828,6 +850,10 @@
         grid-template-columns: 1fr;
       }
 
+      .controls {
+        position: static;
+      }
+
       .bead-scene {
         min-height: auto;
       }
@@ -1042,6 +1068,24 @@
                 <option value="soft">柔和粉彩 16 色</option>
                 <option value="vivid">高饱和像素 24 色</option>
               </select>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="convertMode">转换模式</label>
+                <select id="convertMode">
+                  <option value="clean">干净块面</option>
+                  <option value="dither">精细抖动</option>
+                  <option value="outline">强轮廓</option>
+                </select>
+              </div>
+              <div class="field">
+                <div class="value-line">
+                  <label for="contrastBoost">对比增强</label>
+                  <strong><span id="contrastValue">12</span>%</strong>
+                </div>
+                <input id="contrastBoost" type="range" min="0" max="40" value="12">
+              </div>
             </div>
 
             <div class="field">
@@ -1294,6 +1338,8 @@
     const gridWidth = document.querySelector("#gridWidth");
     const colorCount = document.querySelector("#colorCount");
     const paletteSet = document.querySelector("#paletteSet");
+    const convertMode = document.querySelector("#convertMode");
+    const contrastBoost = document.querySelector("#contrastBoost");
     const projectType = document.querySelector("#projectType");
     const projectName = document.querySelector("#projectName");
     const projectNotes = document.querySelector("#projectNotes");
@@ -1341,6 +1387,7 @@
     const ui = {
       gridWidthValue: document.querySelector("#gridWidthValue"),
       colorCountValue: document.querySelector("#colorCountValue"),
+      contrastValue: document.querySelector("#contrastValue"),
       previewMeta: document.querySelector("#previewMeta"),
       beadTotal: document.querySelector("#beadTotal"),
       boardNeed: document.querySelector("#boardNeed"),
@@ -1427,6 +1474,20 @@
       const dg = a.g - b.g;
       const db = a.b - b.b;
       return dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11;
+    }
+
+    function clampChannel(value) {
+      return Math.max(0, Math.min(255, value));
+    }
+
+    function enhanceColor(rgb, contrast, mode) {
+      const outlineBoost = mode === "outline" ? 1.18 : 1;
+      const factor = (1 + contrast / 100) * outlineBoost;
+      return {
+        r: clampChannel((rgb.r - 128) * factor + 128),
+        g: clampChannel((rgb.g - 128) * factor + 128),
+        b: clampChannel((rgb.b - 128) * factor + 128)
+      };
     }
 
     function nearestColor(rgb, limitedPalette) {
@@ -1822,23 +1883,50 @@
       if (!sourceImage) return;
       const { width, height } = getGridSize();
       const usedPalette = rgbPalette.slice(0, Number(colorCount.value));
+      const mode = convertMode.value;
+      const contrast = Number(contrastBoost.value);
       const sampleCanvas = document.createElement("canvas");
       sampleCanvas.width = width;
       sampleCanvas.height = height;
       const sampleCtx = sampleCanvas.getContext("2d", { willReadFrequently: true });
       sampleCtx.imageSmoothingEnabled = true;
+      sampleCtx.imageSmoothingQuality = "high";
       sampleCtx.drawImage(sourceImage, 0, 0, width, height);
       const pixels = sampleCtx.getImageData(0, 0, width, height).data;
+      const working = Array.from({ length: height }, (_, y) => Array.from({ length: width }, (_, x) => {
+        const i = (y * width + x) * 4;
+        return enhanceColor({ r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] }, contrast, mode);
+      }));
+
+      function addError(x, y, error, factor) {
+        if (!working[y] || !working[y][x]) return;
+        working[y][x] = {
+          r: clampChannel(working[y][x].r + error.r * factor),
+          g: clampChannel(working[y][x].g + error.g * factor),
+          b: clampChannel(working[y][x].b + error.b * factor)
+        };
+      }
 
       currentPattern = [];
       const counts = new Map();
       for (let y = 0; y < height; y += 1) {
         const row = [];
         for (let x = 0; x < width; x += 1) {
-          const i = (y * width + x) * 4;
-          const match = nearestColor({ r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] }, usedPalette);
+          const source = working[y][x];
+          const match = nearestColor(source, usedPalette);
           row.push(match);
           counts.set(match.index, (counts.get(match.index) || 0) + 1);
+          if (mode === "dither") {
+            const error = {
+              r: source.r - match.rgb.r,
+              g: source.g - match.rgb.g,
+              b: source.b - match.rgb.b
+            };
+            addError(x + 1, y, error, 7 / 16);
+            addError(x - 1, y + 1, error, 3 / 16);
+            addError(x, y + 1, error, 5 / 16);
+            addError(x + 1, y + 1, error, 1 / 16);
+          }
         }
         currentPattern.push(row);
       }
@@ -1847,6 +1935,7 @@
       redrawPattern();
       ui.gridWidthValue.textContent = width;
       ui.colorCountValue.textContent = colorCount.value;
+      ui.contrastValue.textContent = contrastBoost.value;
       ui.heroColors.textContent = colorCount.value;
     }
 
@@ -1956,6 +2045,8 @@
         gridWidth: Number(gridWidth.value),
         colorCount: Number(colorCount.value),
         paletteSet: activePaletteKey,
+        convertMode: convertMode.value,
+        contrastBoost: Number(contrastBoost.value),
         projectType: projectType.value,
         beadSize: Number(beadSize.value),
         beadShape,
@@ -1981,6 +2072,9 @@
       applyPaletteSet(project.paletteSet || "standard", false);
       colorCount.value = project.colorCount || colorCount.value;
       syncPaletteControls();
+      convertMode.value = project.convertMode || convertMode.value;
+      contrastBoost.value = String(project.contrastBoost ?? contrastBoost.value);
+      ui.contrastValue.textContent = contrastBoost.value;
       projectType.value = project.projectType || projectType.value;
       beadSize.value = String(project.beadSize || beadSize.value);
       beadShape = project.beadShape || "square";
@@ -2282,6 +2376,11 @@
     gridWidth.addEventListener("input", renderPattern);
     colorCount.addEventListener("input", renderPattern);
     paletteSet.addEventListener("change", () => applyPaletteSet(paletteSet.value));
+    convertMode.addEventListener("change", renderPattern);
+    contrastBoost.addEventListener("input", () => {
+      ui.contrastValue.textContent = contrastBoost.value;
+      renderPattern();
+    });
     beadSize.addEventListener("change", () => {
       if (!currentPattern.length) return;
       updateCalc(currentPattern[0].length, currentPattern.length);
@@ -2341,6 +2440,7 @@
     fillPlayIcons();
     makeDemoBoard();
     syncPaletteControls();
+    ui.contrastValue.textContent = contrastBoost.value;
     selectPaintColor(rgbPalette[0]);
     undoBtn.disabled = true;
     createSampleImage();
