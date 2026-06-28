@@ -1036,6 +1036,15 @@
             </div>
 
             <div class="field">
+              <label for="paletteSet">色板风格</label>
+              <select id="paletteSet">
+                <option value="standard">基础图纸 18 色</option>
+                <option value="soft">柔和粉彩 16 色</option>
+                <option value="vivid">高饱和像素 24 色</option>
+              </select>
+            </div>
+
+            <div class="field">
               <label for="projectType">成品用途</label>
               <select id="projectType">
                 <option value="keychain">钥匙扣 / 挂件</option>
@@ -1219,6 +1228,63 @@
       { name: "透明蓝", code: "C23", hex: "#b8ddf1" }
     ];
 
+    const paletteSets = {
+      standard: {
+        label: "基础图纸",
+        colors: palette
+      },
+      soft: {
+        label: "柔和粉彩",
+        colors: [
+          { name: "纸白", code: "S1", hex: "#fbf7ee" },
+          { name: "奶茶", code: "S2", hex: "#dfc7a4" },
+          { name: "浅黄", code: "S3", hex: "#f4d36b" },
+          { name: "蜜桃", code: "S4", hex: "#f0a878" },
+          { name: "珊瑚", code: "S5", hex: "#e66f78" },
+          { name: "樱粉", code: "S6", hex: "#efa0bd" },
+          { name: "薰衣草", code: "S7", hex: "#a98bd2" },
+          { name: "雾蓝", code: "S8", hex: "#7aa7d9" },
+          { name: "天蓝", code: "S9", hex: "#93cde8" },
+          { name: "薄荷", code: "S10", hex: "#8bd8c0" },
+          { name: "草绿", code: "S11", hex: "#84bc74" },
+          { name: "松绿", code: "S12", hex: "#4c8b68" },
+          { name: "浅棕", code: "S13", hex: "#a97755" },
+          { name: "肤粉", code: "S14", hex: "#f1c6a8" },
+          { name: "浅灰", code: "S15", hex: "#b9c0bd" },
+          { name: "墨灰", code: "S16", hex: "#3c4445" }
+        ]
+      },
+      vivid: {
+        label: "高饱和像素",
+        colors: [
+          { name: "白", code: "V1", hex: "#ffffff" },
+          { name: "米白", code: "V2", hex: "#f2e8c9" },
+          { name: "亮黄", code: "V3", hex: "#ffd23f" },
+          { name: "橙黄", code: "V4", hex: "#ff9f1c" },
+          { name: "正红", code: "V5", hex: "#e63946" },
+          { name: "玫红", code: "V6", hex: "#ef476f" },
+          { name: "粉紫", code: "V7", hex: "#b565d9" },
+          { name: "紫", code: "V8", hex: "#6a4c93" },
+          { name: "深蓝", code: "V9", hex: "#22577a" },
+          { name: "正蓝", code: "V10", hex: "#3867d6" },
+          { name: "湖蓝", code: "V11", hex: "#4cc9f0" },
+          { name: "青", code: "V12", hex: "#00b4d8" },
+          { name: "青绿", code: "V13", hex: "#2ec4b6" },
+          { name: "翠绿", code: "V14", hex: "#2dc653" },
+          { name: "深绿", code: "V15", hex: "#1b7f5a" },
+          { name: "橄榄", code: "V16", hex: "#6a994e" },
+          { name: "棕", code: "V17", hex: "#99582a" },
+          { name: "深棕", code: "V18", hex: "#5c4033" },
+          { name: "肤色", code: "V19", hex: "#f2b880" },
+          { name: "浅肤", code: "V20", hex: "#ffd6b0" },
+          { name: "浅灰", code: "V21", hex: "#c9ced1" },
+          { name: "灰", code: "V22", hex: "#7d858c" },
+          { name: "深灰", code: "V23", hex: "#343a40" },
+          { name: "黑", code: "V24", hex: "#111111" }
+        ]
+      }
+    };
+
     const playIcons = document.querySelectorAll(".play-icon");
     const demoBoard = document.querySelector("#demoBoard");
     const canvas = document.querySelector("#patternCanvas");
@@ -1227,6 +1293,7 @@
     const dropZone = document.querySelector("#dropZone");
     const gridWidth = document.querySelector("#gridWidth");
     const colorCount = document.querySelector("#colorCount");
+    const paletteSet = document.querySelector("#paletteSet");
     const projectType = document.querySelector("#projectType");
     const projectName = document.querySelector("#projectName");
     const projectNotes = document.querySelector("#projectNotes");
@@ -1318,11 +1385,42 @@
       };
     }
 
-    const rgbPalette = palette.map((color, index) => ({
-      ...color,
-      index,
-      rgb: hexToRgb(color.hex)
-    }));
+    let activePaletteKey = "standard";
+    let rgbPalette = buildRgbPalette(activePaletteKey);
+
+    function buildRgbPalette(key) {
+      return paletteSets[key].colors.map((color, index) => ({
+        ...color,
+        index,
+        rgb: hexToRgb(color.hex)
+      }));
+    }
+
+    function syncPaletteControls() {
+      colorCount.max = String(rgbPalette.length);
+      if (Number(colorCount.value) > rgbPalette.length) colorCount.value = String(rgbPalette.length);
+      ui.colorCountValue.textContent = colorCount.value;
+      ui.heroColors.textContent = colorCount.value;
+    }
+
+    function applyPaletteSet(key, shouldRender = true) {
+      if (!paletteSets[key]) return;
+      activePaletteKey = key;
+      paletteSet.value = key;
+      rgbPalette = buildRgbPalette(key);
+      syncPaletteControls();
+      if (selectedColor) selectedColor = rgbPalette[Math.min(selectedColor.index, rgbPalette.length - 1)];
+      if (currentPattern.length) {
+        const indices = snapshotPattern();
+        currentPattern = indices.map((row) => row.map((index) => rgbPalette[Math.min(index, rgbPalette.length - 1)]));
+      }
+      if (shouldRender && sourceImage) {
+        renderPattern();
+      } else if (currentPattern.length) {
+        redrawPattern();
+      }
+      if (selectedColor) selectPaintColor(selectedColor);
+    }
 
     function distance(a, b) {
       const dr = a.r - b.r;
@@ -1857,6 +1955,7 @@
         projectNotes: projectNotes.value,
         gridWidth: Number(gridWidth.value),
         colorCount: Number(colorCount.value),
+        paletteSet: activePaletteKey,
         projectType: projectType.value,
         beadSize: Number(beadSize.value),
         beadShape,
@@ -1879,7 +1978,9 @@
       projectName.value = project.projectName || projectName.value;
       projectNotes.value = project.projectNotes || "";
       gridWidth.value = project.gridWidth || gridWidth.value;
+      applyPaletteSet(project.paletteSet || "standard", false);
       colorCount.value = project.colorCount || colorCount.value;
+      syncPaletteControls();
       projectType.value = project.projectType || projectType.value;
       beadSize.value = String(project.beadSize || beadSize.value);
       beadShape = project.beadShape || "square";
@@ -2180,6 +2281,7 @@
 
     gridWidth.addEventListener("input", renderPattern);
     colorCount.addEventListener("input", renderPattern);
+    paletteSet.addEventListener("change", () => applyPaletteSet(paletteSet.value));
     beadSize.addEventListener("change", () => {
       if (!currentPattern.length) return;
       updateCalc(currentPattern[0].length, currentPattern.length);
@@ -2238,6 +2340,7 @@
 
     fillPlayIcons();
     makeDemoBoard();
+    syncPaletteControls();
     selectPaintColor(rgbPalette[0]);
     undoBtn.disabled = true;
     createSampleImage();
