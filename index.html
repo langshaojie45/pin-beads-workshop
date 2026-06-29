@@ -163,6 +163,12 @@
       color: var(--teal-dark);
     }
 
+    .nav a.active {
+      background: var(--teal);
+      color: #fff;
+      font-weight: 800;
+    }
+
     .shell {
       width: min(1440px, 100%);
       margin: 0 auto;
@@ -329,6 +335,19 @@
     section {
       scroll-margin-top: 84px;
       margin-top: 36px;
+    }
+
+    .app-page {
+      display: none;
+      margin-top: 0;
+    }
+
+    .app-page.active-page {
+      display: block;
+    }
+
+    .hero.app-page.active-page {
+      display: grid;
     }
 
     .section-head {
@@ -559,9 +578,26 @@
       background: linear-gradient(180deg, #ffffff, #f6faf8);
     }
 
+    .preview-info {
+      display: grid;
+      gap: 4px;
+    }
+
+    .preview-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
     .preview-head div {
       color: var(--muted);
       font-size: 13px;
+    }
+
+    .quality-hint {
+      color: var(--teal-dark);
+      font-weight: 700;
     }
 
     .canvas-wrap {
@@ -590,6 +626,10 @@
       grid-template-columns: 1fr 360px;
       gap: 16px;
       margin-top: 16px;
+    }
+
+    .bottom-grid.converter-palette {
+      grid-template-columns: 1fr;
     }
 
     .palette {
@@ -956,15 +996,17 @@
         <span>拼豆工坊</span>
       </div>
       <nav class="nav" aria-label="页面导航">
-        <a href="#plays">玩法</a>
-        <a href="#converter">转换</a>
-                <a href="#games">游戏</a>        <a href="#calculator">估算</a>
-        <a href="#tips">熨烫</a>
+        <a href="#home" data-page-link="home">首页</a>
+        <a href="#plays" data-page-link="plays">玩法</a>
+        <a href="#converter" data-page-link="converter">转换</a>
+        <a href="#games" data-page-link="games">游戏</a>
+        <a href="#estimate" data-page-link="estimate">估算</a>
+        <a href="#tips" data-page-link="tips">熨烫</a>
       </nav>
     </header>
 
     <div class="shell">
-      <section class="hero" aria-label="拼豆工坊首页">
+      <section id="home" class="hero app-page active-page" aria-label="拼豆工坊首页">
         <div class="intro">
           <h1>把图片、灵感和豆子变成清晰图纸。</h1>
           <p class="lead">集成拼豆常见玩法、图片转拼豆图纸、材料数量统计、成品尺寸估算和熨烫提醒。上传一张图，就能得到像素格、配色表和可下载图纸。</p>
@@ -993,7 +1035,7 @@
         </div>
       </section>
 
-      <section id="plays">
+      <section id="plays" class="app-page">
         <div class="section-head">
           <div>
             <h2>拼豆玩法库</h2>
@@ -1028,7 +1070,7 @@
         </div>
       </section>
 
-      <section id="converter">
+      <section id="converter" class="app-page">
         <div class="section-head">
           <div>
             <h2>图片转拼豆图纸</h2>
@@ -1141,8 +1183,14 @@
 
           <div class="preview">
             <div class="preview-head">
-              <div id="previewMeta">30 x 30 / 900 颗</div>
-              <button id="fitBtn" type="button">适配用途</button>
+              <div class="preview-info">
+                <div id="previewMeta">30 x 30 / 900 颗</div>
+                <div class="quality-hint" id="qualityHint">建议：上传图片后可智能优化。</div>
+              </div>
+              <div class="preview-actions">
+                <button id="autoTuneBtn" type="button">智能优化</button>
+                <button id="fitBtn" type="button">适配用途</button>
+              </div>
             </div>
             <div class="canvas-wrap">
               <canvas id="patternCanvas" width="900" height="900" aria-label="转换后的拼豆图纸"></canvas>
@@ -1150,7 +1198,7 @@
           </div>
         </div>
 
-        <div class="bottom-grid">
+        <div class="bottom-grid converter-palette">
           <div class="palette">
             <div class="palette-head">
               <h3>颜色清单</h3>
@@ -1161,32 +1209,10 @@
             </div>
             <div class="palette-list" id="paletteList"></div>
           </div>
-
-          <div class="calculator" id="calculator">
-            <h3>材料估算</h3>
-            <div class="calc-output">
-              <div class="calc-box"><strong id="beadTotal">900</strong><span>总豆数</span></div>
-              <div class="calc-box"><strong id="boardNeed">2</strong><span>29x29 板数量</span></div>
-              <div class="calc-box"><strong id="finalSize">15.0</strong><span>成品宽度 cm</span></div>
-              <div class="calc-box"><strong id="ironTime">25s</strong><span>建议单面熨烫</span></div>
-            </div>
-            <div class="button-row compact">
-              <button id="undoBtn" type="button">撤销</button>
-              <button id="csvBtn" type="button">导出 CSV</button>
-              <button id="exportJsonBtn" type="button">导出项目</button>
-              <button id="importJsonBtn" type="button">导入项目</button>
-              <button id="saveBtn" type="button">保存</button>
-              <button id="loadBtn" type="button">载入</button>
-              <button id="copyLinkBtn" type="button">复制链接</button>
-              <button id="clearProjectBtn" type="button">清项目</button>
-            </div>
-            <input class="hidden-input" id="projectInput" type="file" accept="application/json,.json">
-            <p class="hint" id="calcHint">钥匙扣建议保留明显外轮廓，并在顶部预留开圈位置。</p>
-          </div>
         </div>
       </section>
 
-      <section id="games">
+      <section id="games" class="app-page">
         <div class="section-head">
           <div>
             <h2>拼豆小游戏</h2>
@@ -1225,7 +1251,37 @@
           </aside>
         </div>
       </section>
-      <section id="tips">
+
+      <section id="estimate" class="app-page">
+        <div class="section-head">
+          <div>
+            <h2>材料估算与项目管理</h2>
+            <p class="hint">查看豆子数量、底板数量、成品尺寸，并导出图纸清单或项目文件。</p>
+          </div>
+        </div>
+        <div class="calculator" id="calculator">
+          <h3>材料估算</h3>
+          <div class="calc-output">
+            <div class="calc-box"><strong id="beadTotal">900</strong><span>总豆数</span></div>
+            <div class="calc-box"><strong id="boardNeed">2</strong><span>29x29 板数量</span></div>
+            <div class="calc-box"><strong id="finalSize">15.0</strong><span>成品宽度 cm</span></div>
+            <div class="calc-box"><strong id="ironTime">25s</strong><span>建议单面熨烫</span></div>
+          </div>
+          <div class="button-row compact">
+            <button id="undoBtn" type="button">撤销</button>
+            <button id="csvBtn" type="button">导出 CSV</button>
+            <button id="exportJsonBtn" type="button">导出项目</button>
+            <button id="importJsonBtn" type="button">导入项目</button>
+            <button id="saveBtn" type="button">保存</button>
+            <button id="loadBtn" type="button">载入</button>
+            <button id="copyLinkBtn" type="button">复制链接</button>
+            <button id="clearProjectBtn" type="button">清项目</button>
+          </div>
+          <input class="hidden-input" id="projectInput" type="file" accept="application/json,.json">
+          <p class="hint" id="calcHint">钥匙扣建议保留明显外轮廓，并在顶部预留开圈位置。</p>
+        </div>
+      </section>
+      <section id="tips" class="app-page">
         <div class="section-head">
           <div>
             <h2>制作提醒</h2>
@@ -1356,6 +1412,7 @@
     const cleanupBtn = document.querySelector("#cleanupBtn");
     const downloadBtn = document.querySelector("#downloadBtn");
     const sampleBtn = document.querySelector("#sampleBtn");
+    const autoTuneBtn = document.querySelector("#autoTuneBtn");
     const fitBtn = document.querySelector("#fitBtn");
     const undoBtn = document.querySelector("#undoBtn");
     const csvBtn = document.querySelector("#csvBtn");
@@ -1389,6 +1446,7 @@
       colorCountValue: document.querySelector("#colorCountValue"),
       contrastValue: document.querySelector("#contrastValue"),
       previewMeta: document.querySelector("#previewMeta"),
+      qualityHint: document.querySelector("#qualityHint"),
       beadTotal: document.querySelector("#beadTotal"),
       boardNeed: document.querySelector("#boardNeed"),
       finalSize: document.querySelector("#finalSize"),
@@ -1397,6 +1455,8 @@
       heroColors: document.querySelector("#heroColors"),
       heroBeads: document.querySelector("#heroBeads")
     };
+    const pages = [...document.querySelectorAll(".app-page")];
+    const navLinks = [...document.querySelectorAll("[data-page-link]")];
 
     let sourceImage = null;
     let beadShape = "square";
@@ -1430,6 +1490,14 @@
         g: parseInt(value.slice(2, 4), 16),
         b: parseInt(value.slice(4, 6), 16)
       };
+    }
+
+    function showPage(pageId, updateHash = true) {
+      const target = pages.some((page) => page.id === pageId) ? pageId : "home";
+      pages.forEach((page) => page.classList.toggle("active-page", page.id === target));
+      navLinks.forEach((link) => link.classList.toggle("active", link.dataset.pageLink === target));
+      if (updateHash) history.replaceState(null, "", `#${target}`);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     let activePaletteKey = "standard";
@@ -1490,6 +1558,10 @@
       };
     }
 
+    function luminance(rgb) {
+      return rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114;
+    }
+
     function nearestColor(rgb, limitedPalette) {
       let best = limitedPalette[0];
       let bestScore = Infinity;
@@ -1501,6 +1573,64 @@
         }
       });
       return best;
+    }
+
+    function analyzeImage(image) {
+      const size = 64;
+      const analysisCanvas = document.createElement("canvas");
+      analysisCanvas.width = size;
+      analysisCanvas.height = size;
+      const actx = analysisCanvas.getContext("2d", { willReadFrequently: true });
+      actx.imageSmoothingEnabled = true;
+      actx.imageSmoothingQuality = "high";
+      actx.drawImage(image, 0, 0, size, size);
+      const data = actx.getImageData(0, 0, size, size).data;
+      let sum = 0;
+      let sumSq = 0;
+      let edgeSum = 0;
+      const buckets = new Set();
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          const i = (y * size + x) * 4;
+          const rgb = { r: data[i], g: data[i + 1], b: data[i + 2] };
+          const lum = luminance(rgb);
+          sum += lum;
+          sumSq += lum * lum;
+          buckets.add(`${Math.round(rgb.r / 32)},${Math.round(rgb.g / 32)},${Math.round(rgb.b / 32)}`);
+          if (x > 0 && y > 0) {
+            const left = (y * size + x - 1) * 4;
+            const up = ((y - 1) * size + x) * 4;
+            edgeSum += Math.abs(lum - luminance({ r: data[left], g: data[left + 1], b: data[left + 2] }));
+            edgeSum += Math.abs(lum - luminance({ r: data[up], g: data[up + 1], b: data[up + 2] }));
+          }
+        }
+      }
+      const total = size * size;
+      const mean = sum / total;
+      return {
+        contrast: Math.sqrt(Math.max(0, sumSq / total - mean * mean)),
+        edge: edgeSum / (total * 2),
+        colorBuckets: buckets.size
+      };
+    }
+
+    function autoTuneImage() {
+      if (!sourceImage) return;
+      const stats = analyzeImage(sourceImage);
+      const isPhoto = stats.colorBuckets > 90 || stats.contrast > 52;
+      const isDetailed = stats.edge > 12 || stats.colorBuckets > 120;
+      const suggestedWidth = Math.max(24, Math.min(88, Math.round((isPhoto ? 64 : isDetailed ? 52 : 36) / 2) * 2));
+      gridWidth.value = String(suggestedWidth);
+      projectType.value = isPhoto ? "portrait" : projectType.value;
+      const paletteKey = isPhoto ? "vivid" : stats.colorBuckets < 55 ? "soft" : "standard";
+      applyPaletteSet(paletteKey, false);
+      colorCount.value = String(Math.min(rgbPalette.length, isPhoto ? 18 : isDetailed ? 14 : 10));
+      convertMode.value = isPhoto ? "dither" : isDetailed ? "outline" : "clean";
+      contrastBoost.value = String(Math.min(36, Math.max(10, Math.round(stats.contrast / 2 + stats.edge))));
+      ui.contrastValue.textContent = contrastBoost.value;
+      ui.qualityHint.textContent = `建议：${suggestedWidth} 格 / ${paletteSets[paletteKey].label} / ${convertMode.options[convertMode.selectedIndex].text}`;
+      renderPattern();
+      showPage("converter");
     }
 
     function makeDemoBoard() {
@@ -1885,17 +2015,43 @@
       const usedPalette = rgbPalette.slice(0, Number(colorCount.value));
       const mode = convertMode.value;
       const contrast = Number(contrastBoost.value);
+      const sampleScale = 4;
       const sampleCanvas = document.createElement("canvas");
-      sampleCanvas.width = width;
-      sampleCanvas.height = height;
+      sampleCanvas.width = width * sampleScale;
+      sampleCanvas.height = height * sampleScale;
       const sampleCtx = sampleCanvas.getContext("2d", { willReadFrequently: true });
       sampleCtx.imageSmoothingEnabled = true;
       sampleCtx.imageSmoothingQuality = "high";
-      sampleCtx.drawImage(sourceImage, 0, 0, width, height);
-      const pixels = sampleCtx.getImageData(0, 0, width, height).data;
+      sampleCtx.drawImage(sourceImage, 0, 0, sampleCanvas.width, sampleCanvas.height);
+      const pixels = sampleCtx.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height).data;
       const working = Array.from({ length: height }, (_, y) => Array.from({ length: width }, (_, x) => {
-        const i = (y * width + x) * 4;
-        return enhanceColor({ r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] }, contrast, mode);
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let minLum = 255;
+        let maxLum = 0;
+        for (let sy = 0; sy < sampleScale; sy += 1) {
+          for (let sx = 0; sx < sampleScale; sx += 1) {
+            const px = x * sampleScale + sx;
+            const py = y * sampleScale + sy;
+            const i = (py * sampleCanvas.width + px) * 4;
+            const rgb = { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] };
+            const lum = luminance(rgb);
+            r += rgb.r;
+            g += rgb.g;
+            b += rgb.b;
+            minLum = Math.min(minLum, lum);
+            maxLum = Math.max(maxLum, lum);
+          }
+        }
+        const total = sampleScale * sampleScale;
+        const edge = maxLum - minLum;
+        const enhanced = enhanceColor({ r: r / total, g: g / total, b: b / total }, contrast, mode);
+        if (mode === "outline" && edge > 42) {
+          const factor = 1 - Math.min(0.46, edge / 360);
+          return { r: enhanced.r * factor, g: enhanced.g * factor, b: enhanced.b * factor };
+        }
+        return enhanced;
       }));
 
       function addError(x, y, error, factor) {
@@ -2373,6 +2529,14 @@
       loadFile(event.dataTransfer.files[0]);
     });
 
+    navLinks.forEach((link) => {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        showPage(link.dataset.pageLink);
+      });
+    });
+    window.addEventListener("hashchange", () => showPage(location.hash.replace("#", ""), false));
+
     gridWidth.addEventListener("input", renderPattern);
     colorCount.addEventListener("input", renderPattern);
     paletteSet.addEventListener("change", () => applyPaletteSet(paletteSet.value));
@@ -2430,6 +2594,7 @@
     });
     canvas.addEventListener("click", paintCanvas);
     sampleBtn.addEventListener("click", createSampleImage);
+    autoTuneBtn.addEventListener("click", autoTuneImage);
     fitBtn.addEventListener("click", fitProject);
 
     memoryGameBtn.addEventListener("click", () => setGameMode("memory"));
@@ -2444,6 +2609,7 @@
     selectPaintColor(rgbPalette[0]);
     undoBtn.disabled = true;
     createSampleImage();
+    showPage(location.hash.replace("#", "") || "home", false);
     setGameMode("memory");
   </script>
 </body>
